@@ -1,0 +1,57 @@
+---
+# Basic demo of using Ansible to create a virtual machine on Pouta.csc.fi
+#
+# You'll need to download and source your credentials before this will work:
+#  https://research.csc.fi/pouta-credentials
+#
+- name: Create virtual machine on cPouta
+  hosts: localhost # The OpenStack modules run on your local machine.
+  connection: local
+
+  vars:
+    # These will need changing based on your project
+    demo_key: Johans
+    demo_sg: demo-sg-cuda-johan
+    demo_project: "{{ ansible_env.OS_PROJECT_NAME }}"
+    demo_security_groups: default,{{ demo_sg }},default-{{ demo_project }} # don't add spaces here!
+    demo_network: "{{ demo_project }}"
+    demo_floating_pool: "public"
+
+  tasks:
+    - name: Create security group
+      os_security_group: name={{ demo_sg }}
+
+    - name: Add rule to security group to all ssh from current system
+      os_security_group_rule:
+        security_group: "{{ demo_sg }}"
+        protocol: tcp
+        port_range_min: 22
+        port_range_max: 22
+        remote_ip_prefix: "{{ ansible_default_ipv4.address }}/32"
+
+    - name: Create a virtual machine
+      register: result
+      os_server:
+        name: cuda-demo-4
+        image: "CentOS 7"
+        flavor: gpu.1.4gpu
+        key_name: "{{ demo_key }}"
+        security_groups: "{{ demo_security_groups }}"
+        network: "{{ demo_project }}"
+        auto_ip: True
+        wait: True
+
+    - name: print result if -vvv
+      debug: var=result verbosity=3
+    - name: print addresses from the demo_network
+      debug: var=result.openstack.addresses[demo_network] verbosity=3
+
+    - name: Store the auto-allocated floating IP address
+      set_fact: floating_ip={{ result.openstack.addresses[demo_network][1]['addr'] }}
+    - name: Add new host to inventory
+      add_host: name={{ floating_ip }} groups=gpgpunodes
+    - name: clear ssh known_hosts
+      known_hosts: name={{ floating_ip }} state=absent
+      when: result | changed
+    - name: Wait for instance to be ready
+      wait_for: host={{ floating_ip }} port=22 search_regex=OpenSSH delay=5

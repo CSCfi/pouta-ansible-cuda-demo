@@ -1,0 +1,117 @@
+---
+# Basic demo of using Ansible to create a virtual machine on Pouta.csc.fi
+#
+# You'll need to download and source your credentials before this will work:
+#  https://research.csc.fi/pouta-credentials
+#
+- name: Create virtual machine on cPouta
+  hosts: localhost # The OpenStack modules run on your local machine.
+  connection: local
+
+  vars:
+    # These will need changing based on your project
+    demo_key: Johans
+    demo_sg: demo-sg-cuda-johan
+    demo_project: "{{ ansible_env.OS_PROJECT_NAME }}"
+    demo_security_groups: default,{{ demo_sg }},default-{{ demo_project }} # don't add spaces here!
+    demo_network: "{{ demo_project }}"
+    demo_floating_pool: "public"
+
+  pre_tasks:
+    - name: Create security group
+      os_security_group: name={{ demo_sg }}
+
+    - name: Add rule to security group to all ssh from current system
+      os_security_group_rule:
+        security_group: "{{ demo_sg }}"
+        protocol: tcp
+        port_range_min: 22
+        port_range_max: 22
+        remote_ip_prefix: "{{ ansible_default_ipv4.address }}/32"
+    - name: Add rule to security group to all ssh from internal subnet
+      os_security_group_rule:
+        security_group: "{{ demo_sg }}"
+        protocol: tcp
+        port_range_min: 22
+        port_range_max: 22
+        remote_ip_prefix: "192.168.0.0/16"
+    - name: Add rule to security group to allow all icmp from internal subnet
+      os_security_group_rule:
+        security_group: "{{ demo_sg }}"
+        protocol: icmp
+        port_range_min: -1
+        port_range_max: -1
+        remote_ip_prefix: "192.168.0.0/16"
+
+  tasks:
+  - name: Create 4GPU virtual machines without floating IPs
+    os_server:
+      name: "cuda-numa-4-{{ item }}"
+      flavor: gpu.1.4gpu
+      image: "CentOS 7"
+      key_name: "{{ demo_key }}"
+      security_groups: "{{ demo_security_groups }}"
+      network: "{{ demo_project }}"
+      auto_ip: False
+      wait: True
+    with_items: [ 1, 2, 3, 4, 5, 6, 7 ]
+
+  - name: Create 1GPU virtual machines without floating IPs
+    os_server:
+      name: "cuda-numa-1-{{ item }}"
+      flavor: gpu.1.1gpu
+      image: "CentOS 7"
+      key_name: "{{ demo_key }}"
+      security_groups: "{{ demo_security_groups }}"
+      network: "{{ demo_project }}"
+      auto_ip: False
+      wait: True
+    with_items: [ 1 ]
+
+  - name: Create 2GPU virtual machines without floating IPs
+    os_server:
+      name: "cuda-numa-2-{{ item }}"
+      flavor: gpu.1.2gpu
+      image: "CentOS 7"
+      key_name: "{{ demo_key }}"
+      security_groups: "{{ demo_security_groups }}"
+      network: "{{ demo_project }}"
+      auto_ip: False
+      wait: True
+    with_items: [ 1 ]
+
+  - name: Create 1GPU virtual machines without floating IPs
+    os_server:
+      name: "cuda-numa-1-{{ item }}"
+      flavor: gpu.1.1gpu
+      image: "CentOS 7"
+      key_name: "{{ demo_key }}"
+      security_groups: "{{ demo_security_groups }}"
+      network: "{{ demo_project }}"
+      auto_ip: False
+      wait: True
+    with_items: [ 2 ]
+
+  - name: Create 2GPU virtual machines without floating IPs
+    os_server:
+      name: "cuda-numa-2-{{ item }}"
+      flavor: gpu.1.2gpu
+      image: "CentOS 7"
+      key_name: "{{ demo_key }}"
+      security_groups: "{{ demo_security_groups }}"
+      network: "{{ demo_project }}"
+      auto_ip: False
+      wait: True
+    with_items: [ 2,3,4,5,6, 7 ]
+
+  - name: Create 1GPU virtual machines without floating IPs
+    os_server:
+      name: "cuda-numa-1-{{ item }}"
+      flavor: gpu.1.1gpu
+      image: "CentOS 7"
+      key_name: "{{ demo_key }}"
+      security_groups: "{{ demo_security_groups }}"
+      network: "{{ demo_project }}"
+      auto_ip: False
+      wait: True
+    with_items: [ 3,4,5,6,7,8,9,10,11 ]
